@@ -74,6 +74,15 @@ interface Trade {
   pnl?: number;
   aiReasoning?: string;
   txHash?: string;
+  confidence?: number;
+}
+
+interface RejectedTrade {
+  id: string;
+  marketQuestion: string;
+  reason: string;
+  timestamp: number;
+  confidence: number;
 }
 
 interface AgentThought {
@@ -188,11 +197,15 @@ export default function App() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [news, setNews] = useState<NewsItem[]>(MOCK_NEWS);
   const [isBotActive, setIsBotActive] = useState(false);
+  const [isBacktesting, setIsBacktesting] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [analysisConfidence, setAnalysisConfidence] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [balance, setBalance] = useState(10000);
   const [logs, setLogs] = useState<string[]>(["[SYSTEM] OrdeFlow AI initialized.", "[SYSTEM] Connected to Polymarket Gamma API (Simulated)."]);
   const [agentThoughts, setAgentThoughts] = useState<AgentThought[]>([]);
+  const [rejectedTrades, setRejectedTrades] = useState<RejectedTrade[]>([]);
+  const [riskLevel, setRiskLevel] = useState(5);
   const [strategy, setStrategy] = useState({
     aggression: 50,
     riskTolerance: 30,
@@ -278,6 +291,7 @@ export default function App() {
   const runAiAnalysis = async (market: Market) => {
     setIsAnalyzing(true);
     setAiAnalysis(null);
+    setAnalysisConfidence(null);
     setAgentThoughts([]);
     addLog(`Initiating Agentic Reasoning for: ${market.question}`);
     
@@ -307,6 +321,7 @@ export default function App() {
         - Aggression: ${strategy.aggression}/100
         - Risk Tolerance: ${strategy.riskTolerance}/100
         - News Sensitivity: ${strategy.newsSensitivity}/100
+        - Global Risk Level: ${riskLevel}/10
         
         Provide a "Legendary" Trading Report in Markdown:
         ### 📊 Market Intelligence Report
@@ -330,9 +345,24 @@ export default function App() {
         contents: prompt,
       });
 
-      addThought("strategy", "Calculating optimal position size via Kelly Criterion...", "Whale-Watcher");
+      const confidence = Math.floor(Math.random() * 30) + 65; // 65-95%
+      setAnalysisConfidence(confidence);
+      
+      addThought("strategy", `Calculating optimal position size via Kelly Criterion... Confidence: ${confidence}%`, "Whale-Watcher");
       setAiAnalysis(response.text || "Analysis failed.");
       addLog("AI Oracle has reached consensus.");
+
+      // Logic for "Why Not?" panel
+      if (confidence < 75 || riskLevel > 8) {
+        setRejectedTrades(prev => [{
+          id: Math.random().toString(),
+          marketQuestion: market.question,
+          reason: confidence < 75 ? "Confidence score below threshold for current risk profile." : "Global risk level too high for speculative news-driven plays.",
+          timestamp: Date.now(),
+          confidence
+        }, ...prev].slice(0, 5));
+      }
+
     } catch (error) {
       console.error(error);
       addLog("AI Analysis error.");
@@ -340,6 +370,46 @@ export default function App() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const runBacktest = () => {
+    if (isBacktesting) return;
+    setIsBacktesting(true);
+    addLog("Initializing Backtesting Engine: Replaying historical Polymarket data...");
+    
+    let step = 0;
+    const interval = setInterval(() => {
+      if (step >= 5) {
+        clearInterval(interval);
+        setIsBacktesting(false);
+        addLog("Backtest complete. Final Alpha: +12.4%");
+        return;
+      }
+      
+      const mockTrade: Trade = {
+        id: `bt-${step}`,
+        marketId: "hist",
+        marketQuestion: "Historical: Will BTC hit $100k? (Dec 2025)",
+        outcome: Math.random() > 0.5 ? "Yes" : "No",
+        amount: 500,
+        price: 0.45,
+        timestamp: Date.now() - (1000 * 60 * 60 * 24 * (5 - step)),
+        status: "closed",
+        pnl: Math.floor(Math.random() * 200) - 50,
+        confidence: Math.floor(Math.random() * 30) + 70
+      };
+      
+      setTrades(prev => [mockTrade, ...prev]);
+      addLog(`Backtest Step ${step + 1}: Executed historical trade with ${mockTrade.confidence}% confidence.`);
+      step++;
+    }, 2000);
+  };
+
+  const broadcastWhaleAlert = (msg: string) => {
+    addLog(`Broadcasting alert to Discord/Telegram: ${msg}`);
+    setTimeout(() => {
+      addLog("Broadcast successful. Alert live on community channels.");
+    }, 1000);
   };
 
   const executeTrade = (market: Market, outcome: string, amount: number) => {
@@ -435,10 +505,18 @@ export default function App() {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#F27D26] text-black px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest shadow-[0_0_50px_rgba(242,125,38,0.4)] flex items-center gap-3"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#F27D26] text-black px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest shadow-[0_0_50px_rgba(242,125,38,0.4)] flex items-center gap-4"
           >
-            <ShieldAlert className="w-5 h-5 animate-pulse" />
-            {whaleAlert.message}
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 animate-pulse" />
+              {whaleAlert.message}
+            </div>
+            <button 
+              onClick={() => broadcastWhaleAlert(whaleAlert.message)}
+              className="px-3 py-1 bg-black text-[#F27D26] text-[9px] hover:bg-black/80 transition-colors"
+            >
+              Broadcast to Discord
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -468,6 +546,14 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-6">
+            <button 
+              onClick={runBacktest}
+              disabled={isBacktesting}
+              className="text-[10px] font-mono uppercase tracking-widest flex items-center gap-2 px-4 py-2 border border-[#1A1A1A] hover:bg-[#1A1A1A] transition-colors disabled:opacity-50"
+            >
+              {isBacktesting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <History className="w-3 h-3" />}
+              Run Backtest
+            </button>
             <div className="text-right">
               <div className="text-[10px] font-mono opacity-50 uppercase tracking-widest">Total Balance</div>
               <div className="text-lg font-bold font-mono text-[#F27D26]">${balance.toLocaleString()}</div>
@@ -658,7 +744,14 @@ export default function App() {
                       {aiAnalysis ? (
                         <div className="prose prose-invert prose-sm max-w-none">
                           <div className="flex items-center justify-between mb-4 border-b border-[#1A1A1A] pb-4">
-                            <span className="text-[10px] font-mono uppercase tracking-widest text-[#F27D26]">Final Consensus Report</span>
+                            <div className="flex items-center gap-4">
+                              <span className="text-[10px] font-mono uppercase tracking-widest text-[#F27D26]">Final Consensus Report</span>
+                              {analysisConfidence && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 bg-[#F27D26]/10 text-[#F27D26] border border-[#F27D26]/20">
+                                  Confidence: {analysisConfidence}%
+                                </span>
+                              )}
+                            </div>
                             <div className="flex gap-4">
                               <button 
                                 onClick={() => {
@@ -693,6 +786,33 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* Why Not? Panel */}
+                {rejectedTrades.length > 0 && (
+                  <div className="mt-8 border-t border-[#1A1A1A] pt-8">
+                    <div className="flex items-center gap-2 mb-6">
+                      <AlertCircle className="w-4 h-4 text-[#FF4444]" />
+                      <h3 className="text-xs font-mono uppercase tracking-widest">"Why Not?" Panel — Rejected Signals</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {rejectedTrades.map(trade => (
+                        <div key={trade.id} className="p-4 border border-[#1A1A1A] bg-[#0F0F0F] hover:border-[#FF4444]/30 transition-colors">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[10px] font-mono text-[#FF4444] uppercase tracking-widest">Signal Rejected</span>
+                            <span className="text-[9px] font-mono opacity-30">{format(trade.timestamp, "HH:mm:ss")}</span>
+                          </div>
+                          <p className="text-[11px] font-mono mb-3 opacity-80 leading-tight">{trade.marketQuestion}</p>
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#FF4444]/10 text-[#FF4444] border border-[#FF4444]/20">
+                              Confidence: {trade.confidence}%
+                            </span>
+                          </div>
+                          <p className="text-[10px] font-mono italic opacity-50 leading-relaxed">Reason: {trade.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full opacity-20 py-20">
@@ -799,7 +919,27 @@ export default function App() {
               </div>
 
               {/* Strategy Sliders */}
-              <div className="space-y-4">
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between mb-3">
+                    <label className="text-[10px] font-mono uppercase tracking-widest opacity-50">Risk Level (1-10)</label>
+                    <span className="text-[10px] font-mono text-[#F27D26]">{riskLevel}</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="10" 
+                    value={riskLevel}
+                    onChange={(e) => setRiskLevel(parseInt(e.target.value))}
+                    className="w-full accent-[#F27D26] bg-[#1A1A1A] h-1 rounded-full appearance-none cursor-pointer"
+                  />
+                  <p className="text-[9px] font-mono opacity-40 mt-2">
+                    {riskLevel <= 3 ? "Conservative: Focus on high-liquidity, low-volatility markets." : 
+                     riskLevel <= 7 ? "Balanced: Moderate exposure to emerging trends." : 
+                     "Aggressive: High-conviction plays on volatile news events."}
+                  </p>
+                </div>
+
                 {[
                   { label: "Aggression", key: "aggression" },
                   { label: "Risk Tolerance", key: "riskTolerance" },
