@@ -1,0 +1,5 @@
+{
+  "name": "OrdeFlow AI",
+  "description": "An AI-powered Polymarket trading bot and predictive analytics dashboard that uses Gemini to analyze real-time sentiment and execute on-chain strategies.",
+  "requestFramePermissions": []
+}
