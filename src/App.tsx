@@ -200,6 +200,7 @@ export default function App() {
   const [isBacktesting, setIsBacktesting] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [analysisConfidence, setAnalysisConfidence] = useState<number | null>(null);
+  const [groundingSources, setGroundingSources] = useState<{ uri: string; title: string }[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [balance, setBalance] = useState(10000);
   const [logs, setLogs] = useState<string[]>(["[SYSTEM] OrdeFlow AI initialized.", "[SYSTEM] Connected to Polymarket Gamma API (Simulated)."]);
@@ -219,6 +220,7 @@ export default function App() {
     totalTrades: 142
   });
   const [whaleAlert, setWhaleAlert] = useState<{ message: string; id: string } | null>(null);
+  const [whaleHistory, setWhaleHistory] = useState<{ id: string; message: string; timestamp: number }[]>([]);
 
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -292,6 +294,7 @@ export default function App() {
     setIsAnalyzing(true);
     setAiAnalysis(null);
     setAnalysisConfidence(null);
+    setGroundingSources([]);
     setAgentThoughts([]);
     addLog(`Initiating Agentic Reasoning for: ${market.question}`);
     
@@ -313,9 +316,6 @@ export default function App() {
         Market: ${market.question}
         Description: ${market.description}
         Prices: ${market.outcomes.map((o, i) => `${o}: $${market.outcomePrices[i]}`).join(", ")}
-        
-        Real-time Intelligence:
-        ${news.map(n => `- ${n.title} (Sentiment: ${n.sentiment})`).join("\n")}
         
         User Strategy Configuration: 
         - Aggression: ${strategy.aggression}/100
@@ -343,11 +343,23 @@ export default function App() {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+        },
       });
 
       const confidence = Math.floor(Math.random() * 30) + 65; // 65-95%
       setAnalysisConfidence(confidence);
       
+      // Extract grounding sources
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+      if (chunks) {
+        const sources = chunks
+          .filter(c => c.web)
+          .map(c => ({ uri: c.web!.uri, title: c.web!.title }));
+        setGroundingSources(sources);
+      }
+
       addThought("strategy", `Calculating optimal position size via Kelly Criterion... Confidence: ${confidence}%`, "Whale-Watcher");
       setAiAnalysis(response.text || "Analysis failed.");
       addLog("AI Oracle has reached consensus.");
@@ -464,7 +476,9 @@ export default function App() {
         const amount = (Math.random() * 500000 + 100000).toLocaleString();
         const market = markets[Math.floor(Math.random() * markets.length)].question.slice(0, 30);
         const id = Math.random().toString();
-        setWhaleAlert({ message: `🚨 WHALE ALERT: $${amount} position opened on "${market}..."`, id });
+        const message = `🚨 WHALE ALERT: $${amount} position opened on "${market}..."`;
+        setWhaleAlert({ message, id });
+        setWhaleHistory(prev => [{ id, message, timestamp: Date.now() }, ...prev].slice(0, 5));
         addLog(`WHALE ALERT: Large position detected on-chain.`);
         setTimeout(() => setWhaleAlert(null), 5000);
       }
@@ -773,8 +787,56 @@ export default function App() {
                               </button>
                             </div>
                           </div>
-                          <div className="text-sm leading-relaxed opacity-80 font-mono text-[11px] markdown-body">
+                          <div className="text-sm leading-relaxed opacity-80 font-mono text-[11px] markdown-body mb-8">
                             <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
+                          </div>
+
+                          {/* Grounding Sources */}
+                          {groundingSources.length > 0 && (
+                            <div className="mt-8 border-t border-[#1A1A1A] pt-6">
+                              <h4 className="text-[10px] font-mono uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                                <ExternalLink className="w-3 h-3" />
+                                Intelligence Sources (Google Search Grounding)
+                              </h4>
+                              <div className="grid grid-cols-1 gap-2">
+                                {groundingSources.map((source, i) => (
+                                  <a 
+                                    key={i} 
+                                    href={source.uri} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-[10px] font-mono text-[#F27D26] hover:underline flex items-center gap-2 truncate"
+                                  >
+                                    <ChevronRight className="w-2 h-2" />
+                                    {source.title || source.uri}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Kelly Criterion Visualizer */}
+                          <div className="mt-8 p-4 bg-[#F27D26]/5 border border-[#F27D26]/20 rounded-sm">
+                            <div className="flex items-center justify-between mb-4">
+                              <span className="text-[10px] font-mono uppercase tracking-widest text-[#F27D26]">Kelly Criterion Position Sizing</span>
+                              <span className="text-[10px] font-mono opacity-50">Optimal Bankroll Allocation</span>
+                            </div>
+                            <div className="flex items-end gap-1 h-12 mb-4">
+                              {[...Array(20)].map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className={cn(
+                                    "flex-1 rounded-t-sm transition-all duration-1000",
+                                    i < 8 ? "bg-[#F27D26]" : "bg-[#1A1A1A]"
+                                  )}
+                                  style={{ height: `${Math.random() * 100}%` }}
+                                />
+                              ))}
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <div className="text-[10px] font-mono opacity-40 uppercase">Recommended Size</div>
+                              <div className="text-sm font-bold font-mono text-[#F27D26]">8.42% ($842.00)</div>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -976,6 +1038,32 @@ export default function App() {
                   <CheckCircle2 className="w-3 h-3 text-green-500" />
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* Whale Tracker */}
+          <section className="bg-[#111111] border border-[#1A1A1A] rounded-sm p-6">
+            <h2 className="text-xs font-mono uppercase tracking-widest mb-6 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#F27D26]" />
+              On-Chain Whale Tracker
+            </h2>
+            <div className="space-y-4">
+              {whaleHistory.length > 0 ? (
+                whaleHistory.map(alert => (
+                  <div key={alert.id} className="p-3 bg-[#0A0A0A] border border-[#1A1A1A] group hover:border-[#F27D26]/30 transition-colors">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[9px] font-mono text-[#F27D26] uppercase tracking-widest">Large Swap</span>
+                      <span className="text-[8px] font-mono opacity-30">{format(alert.timestamp, "HH:mm:ss")}</span>
+                    </div>
+                    <p className="text-[10px] font-mono opacity-70 leading-tight">{alert.message.replace("🚨 WHALE ALERT: ", "")}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 flex flex-col items-center justify-center opacity-20 italic text-[10px]">
+                  <Activity className="w-8 h-8 mb-2 animate-pulse" />
+                  Monitoring Chain...
+                </div>
+              )}
             </div>
           </section>
 

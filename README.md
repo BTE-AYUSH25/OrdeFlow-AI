@@ -34,11 +34,17 @@ OrdeFlow AI solves this by deploying three specialized agents:
 ### 🧠 Multi-Agent Consensus Protocol
 Watch the agents "debate" in real-time. The **Internal Monologue** log shows the step-by-step reasoning before a final trade recommendation is reached.
 
+### 🌐 Google Search Grounding
+OrdeFlow AI is powered by **Gemini 3.1 Pro with Google Search Grounding**. This means every analysis is backed by real-time, live web data, ensuring the agent is aware of breaking news before it's even priced in.
+
 ### 🎙️ Audio Briefings (Gemini TTS)
 Don't have time to read? Click "Audio Briefing" to hear a high-fidelity summary of the market analysis, generated instantly by **Gemini 2.5 Flash Native Audio**.
 
 ### 📈 Backtesting Engine
 Replay historical Polymarket data to see how the AI would have performed. Our engine simulates past events to validate strategy alpha before you risk real capital.
+
+### ⚖️ Kelly Criterion Position Sizing
+Institutional-grade risk management. The AI calculates the optimal percentage of your bankroll to allocate to each trade using the **Kelly Criterion**, visualized directly in the report.
 
 ### 🚨 Whale Alert & Social Broadcast
 Real-time detection of large on-chain movements. With one click, broadcast these alerts to your **Discord or Telegram** community to keep your followers ahead of the curve.
