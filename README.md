@@ -10,7 +10,7 @@
 
 ---
 
-## 🚀 The Elevator Pitch
+
 Prediction markets move at the speed of light. OrdeFlow AI removes human emotion from the equation by using a **Multi-Agent Orchestration** layer. It doesn't just "guess"; it debates. By correlating global news, on-chain liquidity, and social sentiment, it provides traders with the ultimate "Truth Machine" for predictive betting.
 
 ---
@@ -29,9 +29,9 @@ OrdeFlow AI solves this by deploying three specialized agents:
 
 ---
 
-## 🔥 Key Features (Hackathon Edge)
+## Key Features:
 
-### 🧠 Multi-Agent Consensus Protocol
+###  Multi-Agent Consensus Protocol
 Watch the agents "debate" in real-time. The **Internal Monologue** log shows the step-by-step reasoning before a final trade recommendation is reached.
 
 ### 🌐 Google Search Grounding
@@ -124,4 +124,4 @@ Structured, Markdown-rendered reports that break down:
 
 ---
 
-**Built with ❤️ for the AI Studio Hackathon.**
+**Built with ❤️ for the  Orderflow 001 – On-Chain Trading Systems Sprint.**
